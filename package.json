@@ -1,0 +1,15 @@
+{
+  "name": "zotero-llm-metadata",
+  "version": "0.1.0",
+  "description": "Use AI to extract and fill citation metadata from PDFs in Zotero",
+  "author": "Zotero Community",
+  "license": "AGPL-3.0",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "start": "node scripts/build.mjs --dev"
+  },
+  "devDependencies": {
+    "esbuild": "^0.20.0",
+    "typescript": "^5.4.0"
+  }
+}
