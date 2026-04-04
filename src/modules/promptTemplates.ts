@@ -14,7 +14,18 @@ Rules:
 - For author names, preserve the exact form given in the document.
 - Determine the most appropriate Zotero item type from this list: journalArticle, book, bookSection, conferencePaper, thesis, report, preprint, webpage, manuscript, document, artwork, audioRecording, bill, blogPost, case, computerProgram, dictionaryEntry, encyclopediaArticle, film, forumPost, hearing, interview, letter, magazineArticle, map, newspaperArticle, patent, podcast, presentation, radioBroadcast, standard, statute, tvBroadcast, videoRecording.
 - Return ONLY valid JSON. No commentary, no markdown fences, no extra text.
-- If the document is not in English, still extract metadata but set the "language" field to the appropriate ISO 639-1 code.`;
+- If the document is not in English, still extract metadata but set the "language" field to the appropriate ISO 639-1 code.
+
+Interview-specific rules (itemType "interview"):
+- The title should be the subject or topic of the interview, NOT "Interview with [Name]". If no clear topic, use a brief descriptive title based on the content.
+- The person being interviewed is the creatorType "interviewee".
+- The person conducting the interview is the creatorType "interviewer".
+- Do NOT use "author" or "contributor" for interview participants. Always use "interviewee" and "interviewer".
+- If the document is a transcript or record of an interview, the interviewee is the primary creator.
+
+Place formatting:
+- For locations in the United States, format as "City, ST" using the two-letter state abbreviation (e.g., "Davidson, NC" not "Davidson, North Carolina").
+- For international locations, use "City, Country" format.`;
 
 export const USER_PROMPT_TEMPLATE = `Extract bibliographic metadata from the following document text. Return a JSON object with this structure:
 

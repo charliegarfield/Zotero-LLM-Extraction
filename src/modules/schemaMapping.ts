@@ -179,7 +179,7 @@ const ITEM_TYPE_FIELDS: Record<string, string[]> = {
   ],
   blogPost: ["blogTitle", "websiteType"],
   letter: ["letterType"],
-  interview: ["interviewMedium"],
+  interview: ["interviewMedium", "place"],
   film: ["distributor", "genre", "videoRecordingFormat", "runningTime"],
   artwork: ["artworkMedium", "artworkSize", "archive", "archiveLocation"],
 };
@@ -215,6 +215,7 @@ const CREATOR_TYPES: Record<string, string[]> = {
   report: ["author", "contributor", "seriesEditor", "translator"],
   preprint: ["author", "contributor", "editor", "reviewedAuthor", "translator"],
   webpage: ["author", "contributor", "translator"],
+  interview: ["interviewee", "interviewer", "contributor", "translator"],
   document: ["author", "contributor", "editor", "reviewedAuthor", "translator"],
 };
 
