@@ -22,6 +22,11 @@ Interview-specific rules (itemType "interview"):
 - The person conducting/asking questions MUST use creatorType "interviewer".
 - Do NOT use "author" or "contributor" for interview participants. ALWAYS use "interviewee" and "interviewer".
 - The interviewee is the primary creator and should be listed first.
+- Editors, compilers, or other people involved in producing the interview record should be listed as "contributor", NOT "editor".
+
+Creator type rules (all item types):
+- For interviews, use "interviewee" and "interviewer" as described above.
+- For other item types, people who edited, compiled, or supervised the work should generally be listed as "contributor" unless they are specifically the editor of a book, journal, or collection. When in doubt, prefer "contributor" over "editor".
 
 Place formatting:
 - For locations in the United States, format as "City, ST" using the two-letter state abbreviation (e.g., "Davidson, NC" not "Davidson, North Carolina").
