@@ -18,10 +18,10 @@ Rules:
 
 Interview-specific rules (itemType "interview"):
 - The title should be the subject or topic of the interview, NOT "Interview with [Name]". If no clear topic, use a brief descriptive title based on the content.
-- The person being interviewed is the creatorType "interviewee".
-- The person conducting the interview is the creatorType "interviewer".
-- Do NOT use "author" or "contributor" for interview participants. Always use "interviewee" and "interviewer".
-- If the document is a transcript or record of an interview, the interviewee is the primary creator.
+- The person being interviewed (the "Interview With" field in Zotero) MUST use creatorType "interviewee" — this is Zotero's internal name for it.
+- The person conducting/asking questions MUST use creatorType "interviewer".
+- Do NOT use "author" or "contributor" for interview participants. ALWAYS use "interviewee" and "interviewer".
+- The interviewee is the primary creator and should be listed first.
 
 Place formatting:
 - For locations in the United States, format as "City, ST" using the two-letter state abbreviation (e.g., "Davidson, NC" not "Davidson, North Carolina").
