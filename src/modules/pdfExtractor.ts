@@ -17,6 +17,8 @@ export interface ExtractedText {
   hasText: boolean;
   /** Base64-encoded PDF for vision fallback (only set when hasText is false) */
   pdfBase64?: string;
+  /** Base64-encoded PNG images of first N pages (for OpenAI vision) */
+  pageImages?: string[];
   pdfFilePath?: string;
   /** True if the PDF file is missing from disk */
   fileNotFound?: boolean;
@@ -147,6 +149,10 @@ export async function extractText(
       Zotero.debug("[LLM Metadata] PDF read as base64: " +
         Math.round(pdfBase64.length / 1024) + " KB base64 (" +
         Math.round(pdfBytes.length / 1024) + " KB raw)");
+
+      // Also render page images for OpenAI vision support
+      const pageImages = await renderPageImages(pdfAttachment, maxPages);
+
       return {
         fullText: "",
         firstPages: "",
@@ -154,6 +160,7 @@ export async function extractText(
         isOCR: false,
         hasText: false,
         pdfBase64,
+        pageImages,
         pdfFilePath: filePath,
       };
     }
@@ -162,6 +169,58 @@ export async function extractText(
   }
 
   return { fullText: "", firstPages: "", pageCount: 0, isOCR: false, hasText: false };
+}
+
+/**
+ * Render the first N pages of a PDF as PNG images (base64-encoded).
+ * Uses Zotero.PDFWorker if available, otherwise returns empty array.
+ */
+async function renderPageImages(pdfAttachment: any, maxPages: number): Promise<string[]> {
+  const images: string[] = [];
+  try {
+    if (!Zotero.PDFWorker || !Zotero.PDFWorker.renderAttachmentAnnotations) {
+      // Try an alternative: use the PDF renderer directly
+      Zotero.debug("[LLM Metadata] PDFWorker.renderAttachmentAnnotations not available, " +
+        "trying alternative page rendering...");
+
+      // Zotero 7 has Zotero.PDFRenderer or we can use pdf.js via PDFWorker
+      if (Zotero.PDFWorker && Zotero.PDFWorker.getFullText) {
+        // PDFWorker exists but may not have page rendering
+        // Fall back: we already have pdfBase64, OpenAI-compatible providers
+        // that support vision can use a different approach
+        Zotero.debug("[LLM Metadata] Page image rendering not supported in this Zotero version.");
+        return [];
+      }
+      return [];
+    }
+
+    // Render pages using PDFWorker
+    const filePath = await pdfAttachment.getFilePathAsync();
+    if (!filePath) return [];
+
+    for (let page = 0; page < maxPages; page++) {
+      try {
+        const result = await Zotero.PDFWorker.renderPage(
+          pdfAttachment.id, page, { scale: 1.5 }
+        );
+        if (result && result.data) {
+          images.push(uint8ArrayToBase64(new Uint8Array(result.data)));
+          Zotero.debug("[LLM Metadata] Rendered page " + (page + 1) + " as image");
+        }
+      } catch (pageErr: any) {
+        // Likely past the end of the document
+        if (page === 0) {
+          Zotero.debug("[LLM Metadata] Failed to render even page 1: " + pageErr);
+        }
+        break;
+      }
+    }
+  } catch (e: any) {
+    Zotero.debug("[LLM Metadata] Page rendering error: " + e);
+  }
+
+  Zotero.debug("[LLM Metadata] Rendered " + images.length + " page images");
+  return images;
 }
 
 /**

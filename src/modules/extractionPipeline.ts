@@ -168,7 +168,7 @@ async function processSingleItem(item: any): Promise<void> {
         const visionPrompt = buildExtractionPrompt(
           "(This is a scanned PDF document. Please read the document images and extract metadata.)"
         );
-        llmResponse = await callLLMWithPDF(llmConfig, extracted.pdfBase64, SYSTEM_PROMPT, visionPrompt);
+        llmResponse = await callLLMWithPDF(llmConfig, extracted.pdfBase64, SYSTEM_PROMPT, visionPrompt, extracted.pageImages);
       } catch (visionErr: any) {
         Zotero.debug("[LLM Metadata] Vision fallback error: " + visionErr + "\n" + (visionErr.stack || ""));
         progress.close();
@@ -642,7 +642,7 @@ export async function autoExtractForItem(itemID: number): Promise<void> {
       const visionPrompt = buildExtractionPrompt(
         "(This is a scanned PDF document. Please read the document images and extract metadata.)"
       );
-      llmResponse = await callLLMWithPDF(llmConfig, extracted.pdfBase64, SYSTEM_PROMPT, visionPrompt);
+      llmResponse = await callLLMWithPDF(llmConfig, extracted.pdfBase64, SYSTEM_PROMPT, visionPrompt, extracted.pageImages);
     } else if (!extracted.hasText) {
       Zotero.debug("[LLM Metadata] Auto-extract: no text for item " + item.id);
       return;

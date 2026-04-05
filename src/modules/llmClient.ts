@@ -253,10 +253,12 @@ export async function callLLMWithPDF(
   config: LLMConfig,
   pdfBase64: string,
   systemPrompt: string,
-  userPrompt: string
+  userPrompt: string,
+  pageImages?: string[]
 ): Promise<LLMResponse> {
   Zotero.debug("[LLM Metadata] callLLMWithPDF: provider=" + config.provider +
-    " pdfSize=" + Math.round(pdfBase64.length / 1024) + "KB base64");
+    " pdfSize=" + Math.round(pdfBase64.length / 1024) + "KB base64" +
+    " pageImages=" + (pageImages ? pageImages.length : 0));
 
   let requestBody: any;
   let url: string;
@@ -295,15 +297,12 @@ export async function callLLMWithPDF(
         },
       ],
     };
-  } else if (config.provider === "openai" || config.provider === "openai-compatible") {
-    // OpenAI doesn't support PDF documents directly.
-    // Fall back to sending a message explaining the limitation.
-    url = config.provider === "openai"
-      ? "https://api.openai.com/v1/chat/completions"
-      : (config.endpoint || "http://localhost:11434/v1/chat/completions");
+  } else if (config.provider === "openai") {
+    // OpenAI supports inline PDF via the "file" content type
+    url = "https://api.openai.com/v1/chat/completions";
     headers = {
       "Content-Type": "application/json",
-      ...(config.apiKey ? { Authorization: "Bearer " + config.apiKey } : {}),
+      Authorization: "Bearer " + config.apiKey,
     };
     requestBody = {
       model: config.model,
@@ -313,10 +312,56 @@ export async function callLLMWithPDF(
         { role: "system", content: systemPrompt },
         {
           role: "user",
-          content: userPrompt +
-            "\n\nNote: This document is a scanned PDF with no extractable text. " +
-            "Only basic metadata from the filename may be available.",
+          content: [
+            {
+              type: "file",
+              file: {
+                filename: "document.pdf",
+                file_data: "data:application/pdf;base64," + pdfBase64,
+              },
+            },
+            {
+              type: "text",
+              text: userPrompt,
+            },
+          ],
         },
+      ],
+    };
+  } else if (config.provider === "openai-compatible") {
+    // OpenAI-compatible endpoints (Ollama, LM Studio, etc.)
+    // Try page images if available, otherwise fall back to PDF or text-only
+    url = config.endpoint || "http://localhost:11434/v1/chat/completions";
+    headers = {
+      "Content-Type": "application/json",
+      ...(config.apiKey ? { Authorization: "Bearer " + config.apiKey } : {}),
+    };
+
+    const contentBlocks: any[] = [];
+
+    if (pageImages && pageImages.length > 0) {
+      // Send page images via OpenAI vision format
+      Zotero.debug("[LLM Metadata] Sending " + pageImages.length + " page images to compatible endpoint");
+      for (const img of pageImages) {
+        contentBlocks.push({
+          type: "image_url",
+          image_url: {
+            url: "data:image/png;base64," + img,
+            detail: "high",
+          },
+        });
+      }
+    }
+
+    contentBlocks.push({ type: "text", text: userPrompt });
+
+    requestBody = {
+      model: config.model,
+      max_tokens: config.maxTokens,
+      temperature: config.temperature,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: contentBlocks },
       ],
     };
   } else {
