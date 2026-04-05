@@ -1,0 +1,88 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm ci
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - name: Build XPI
+        run: npm run build
+
+      - name: Upload XPI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zotero-llm-metadata-xpi
+          path: build/*.xpi
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate update.json
+        run: |
+          cat > build/update.json << 'TEMPLATE'
+          {
+            "addons": {
+              "llm-metadata@zotero-community.org": {
+                "updates": [
+                  {
+                    "version": "VERSION",
+                    "update_link": "RELEASE_URL",
+                    "applications": {
+                      "zotero": {
+                        "strict_min_version": "7.0",
+                        "strict_max_version": "7.*"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+          TEMPLATE
+          XPI_NAME="llm-metadata-extractor-${{ steps.version.outputs.version }}.xpi"
+          RELEASE_URL="https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/${XPI_NAME}"
+          sed -i "s|VERSION|${{ steps.version.outputs.version }}|g" build/update.json
+          sed -i "s|RELEASE_URL|${RELEASE_URL}|g" build/update.json
+          cat build/update.json
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/*.xpi
+            build/update.json
+          generate_release_notes: true
