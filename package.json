@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Use AI to extract and fill citation metadata from PDFs in Zotero",
   "author": "Zotero Community",
-  "license": "AGPL-3.0",
+  "license": "MIT",
   "scripts": {
     "build": "node scripts/build.mjs",
     "start": "node scripts/build.mjs --dev"
