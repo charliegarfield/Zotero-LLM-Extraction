@@ -230,18 +230,40 @@ async function processSingleItem(item: any): Promise<void> {
 
     // Step 5: Optional verification
     let verification;
+    const firstAuthor = mapped.creators[0];
+    const authorStr = firstAuthor
+      ? `${firstAuthor.firstName} ${firstAuthor.lastName}`
+      : undefined;
+
     if (prefs.verifyDOI && mapped.fields.DOI) {
       progress.close();
       progress = showProgress("Verifying DOI...");
-      const firstAuthor = mapped.creators[0];
-      const authorStr = firstAuthor
-        ? `${firstAuthor.firstName} ${firstAuthor.lastName}`
-        : undefined;
       verification = await verifyDOI(
         mapped.fields.DOI,
         mapped.fields.title || "",
         authorStr
       );
+    } else if (prefs.verifyDOI && mapped.fields.title && !mapped.fields.DOI) {
+      // No DOI found — try to discover one via OpenAlex title search
+      progress.close();
+      progress = showProgress("Searching for DOI...");
+      const oaResult = await searchOpenAlex(mapped.fields.title);
+      if (oaResult.suggestedDOI) {
+        Zotero.debug("[LLM Metadata] OpenAlex suggested DOI: " + oaResult.suggestedDOI);
+        mapped.fields.DOI = oaResult.suggestedDOI;
+        verification = oaResult;
+      }
+    }
+
+    if (prefs.verifyISBN && mapped.fields.ISBN) {
+      progress.close();
+      progress = showProgress("Verifying ISBN...");
+      const isbnResult = await verifyISBN(mapped.fields.ISBN, mapped.fields.title || "");
+      if (!isbnResult.verified) {
+        Zotero.debug("[LLM Metadata] ISBN verification failed: " + isbnResult.message);
+        // Keep the verification result to show in the review dialog
+        if (!verification) verification = isbnResult;
+      }
     }
 
     // Step 6: Present review dialog
@@ -358,16 +380,28 @@ async function processBatch(items: any[]): Promise<void> {
       const mapped = mapToZoteroSchema(llmResponse.metadata);
 
       let verification;
+      const batchFirstAuthor = mapped.creators[0];
+      const batchAuthorStr = batchFirstAuthor
+        ? `${batchFirstAuthor.firstName} ${batchFirstAuthor.lastName}`
+        : undefined;
+
       if (prefs.verifyDOI && mapped.fields.DOI) {
-        const firstAuthor = mapped.creators[0];
-        const authorStr = firstAuthor
-          ? `${firstAuthor.firstName} ${firstAuthor.lastName}`
-          : undefined;
         verification = await verifyDOI(
           mapped.fields.DOI,
           mapped.fields.title || "",
-          authorStr
+          batchAuthorStr
         );
+      } else if (prefs.verifyDOI && mapped.fields.title && !mapped.fields.DOI) {
+        const oaResult = await searchOpenAlex(mapped.fields.title);
+        if (oaResult.suggestedDOI) {
+          mapped.fields.DOI = oaResult.suggestedDOI;
+          verification = oaResult;
+        }
+      }
+
+      if (prefs.verifyISBN && mapped.fields.ISBN) {
+        const isbnResult = await verifyISBN(mapped.fields.ISBN, mapped.fields.title || "");
+        if (!verification) verification = isbnResult;
       }
 
       const currentCreators = item.getCreators().map((c: any) => ({
@@ -619,7 +653,38 @@ export async function autoExtractForItem(itemID: number): Promise<void> {
 
     const mapped = mapToZoteroSchema(llmResponse.metadata);
 
-    // Re-fetch item to get fresh state (another item in the queue may have modified it)
+    // Auto-verification: discover DOIs via OpenAlex, verify existing ones
+    if (prefs.verifyDOI && !mapped.fields.DOI && mapped.fields.title) {
+      try {
+        const oaResult = await searchOpenAlex(mapped.fields.title);
+        if (oaResult.suggestedDOI) {
+          Zotero.debug("[LLM Metadata] Auto-extract: discovered DOI via OpenAlex: " + oaResult.suggestedDOI);
+          mapped.fields.DOI = oaResult.suggestedDOI;
+        }
+      } catch (_) {}
+    }
+    if (prefs.verifyDOI && mapped.fields.DOI) {
+      try {
+        const autoAuthor = mapped.creators[0];
+        const autoAuthorStr = autoAuthor ? `${autoAuthor.firstName} ${autoAuthor.lastName}` : undefined;
+        const doiResult = await verifyDOI(mapped.fields.DOI, mapped.fields.title || "", autoAuthorStr);
+        if (!doiResult.verified) {
+          Zotero.debug("[LLM Metadata] Auto-extract: DOI verification failed, removing DOI");
+          delete mapped.fields.DOI;
+        }
+      } catch (_) {}
+    }
+    if (prefs.verifyISBN && mapped.fields.ISBN) {
+      try {
+        const isbnResult = await verifyISBN(mapped.fields.ISBN, mapped.fields.title || "");
+        if (!isbnResult.verified) {
+          Zotero.debug("[LLM Metadata] Auto-extract: ISBN verification failed, removing ISBN");
+          delete mapped.fields.ISBN;
+        }
+      } catch (_) {}
+    }
+
+    // Re-fetch item to get fresh state
     item = Zotero.Items.get(item.id);
     if (!item) return;
 
